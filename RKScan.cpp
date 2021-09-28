@@ -5,6 +5,8 @@
  * SPDX-License-Identifier:	GPL-2.0+
  */
 
+#include <stdlib.h>
+
 #include "RKScan.h"
 #define BUSID(id)  ((id & 0x0000FF00) >> 8)
 int CRKScan::GetDEVICE_COUNTS()
@@ -303,11 +305,25 @@ int CRKScan::Search(UINT type)
 	ENUM_RKDEVICE_TYPE devType;
 	UINT uiTotalDevice;
 	int iPos;
+	const char *sEnvLocationID = getenv("RKDEVELOPTOOL_LOCATION_ID");
+	long lEnvLocationID = -1l;
+	if (sEnvLocationID) {
+		lEnvLocationID = strtol(sEnvLocationID, NULL, 16);
+	}
 
 	FreeDeviceList(m_list);
     EnumerateUsbDevice( m_list, uiTotalDevice );
 
 	for ( iter = m_list.begin(); iter != m_list.end(); ) {
+		if ((lEnvLocationID != -1l) && ((*iter).uiLocationID != lEnvLocationID)) {
+			if ((*iter).pUsbHandle) {
+				libusb_unref_device((libusb_device *)((*iter).pUsbHandle));
+				(*iter).pUsbHandle = NULL;
+			}
+			iter = m_list.erase(iter);
+			uiTotalDevice--;
+			continue;
+		}
 		if( (iPos = FindConfigSetPos(m_deviceMscConfigSet, (*iter).usVid, (*iter).usPid)) != -1 ) {
 			(*iter).emDeviceType = RKNONE_DEVICE;
 			iter++;
